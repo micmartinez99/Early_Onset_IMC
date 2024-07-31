@@ -4,7 +4,9 @@ Here, imaging mass cytometry (IMC) was emplyed. IMC is a single-cell proteomic t
 
 # Analysis
 IMC images were acquired using the Hyperion system from Standard BioTools (MCD images). MCD images were visually assessed using MCD Viewer software (Standard BioTools).
-Image pre-processing and segmentation were facilitated using the Steinbock toolkit as previously described here: https://bodenmillergroup.github.io/steinbock/latest/cli/preprocessing/
+Image pre-processing and segmentation were facilitated using the Steinbock toolkit (DeepCell) as previously described here: https://bodenmillergroup.github.io/steinbock/latest/cli/preprocessing/
+
+Segmentation quality was assessed using Napari in a python script.
 Downstream image and single-cell analysis was conducted in R using BioConductor packages imcRtools and Cytomapper.
 
 
