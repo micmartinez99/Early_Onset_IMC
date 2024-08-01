@@ -723,3 +723,8 @@ for (i in clusterNames) {
   ggsave(paste("Outputs/001_Prepare_Spe_Objects_Outputs/Cluster_Violins/By_Sex_and_Indication", fileName, sep = "/"), props, width = 10, height = 10, dpi = 300)
 }
 
+################################################################################
+
+spe <- readRDS("Data/001_Preprocessed/PG_Clustered_Spe.Rds")
+cellData <- as.data.frame(assay(spe, "exprs"))
+write.csv(cellData, file = "Outputs/001_Prepare_Spe_Objects_Outputs/All_Cell_Expression_Data.csv")
