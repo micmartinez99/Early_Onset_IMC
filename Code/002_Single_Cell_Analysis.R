@@ -158,24 +158,24 @@ spe$cellTypes <- ifelse(spe$pg == "1", "Tregs",
                                                                                 ifelse(spe$pg == "10", "Stroma",
                                                                                        ifelse(spe$pg == "11", "Proliferating Epithelium",
                                                                                               ifelse(spe$pg == "12", "M2 Macrophage",
-                                                                                                     ifelse(spe$pg == "13", "CD8a+ T-lymphocytes",
+                                                                                                     ifelse(spe$pg == "13", "T-Helpers",
                                                                                                             ifelse(spe$pg == "14", "Epithelium",
-                                                                                                                   ifelse(spe$pg == "15", "CD8a+ T-lymphocytes",
+                                                                                                                   ifelse(spe$pg == "15", "CTLs",
                                                                                                                           ifelse(spe$pg == "16", "Proliferating Epithelium",
                                                                                                                                  ifelse(spe$pg == "17", "Undefined",
                                                                                                                                         ifelse(spe$pg == "18", "Epithelium", "IELs"))))))))))))))))))
 
 # Add a color vector to the metadata slot for celltypes
-cellTypeColors <- setNames(c("#3F1B03", "#F4AD31", "#894F36", "#1C750C", "#EF8ECC", 
-                             "#6471E2", "#4DB23B", "grey", "#BF0A3D"),
+cellTypeColors <- setNames(c("#3F1B03", "#894F20","#F4AD31", "#1C750C", "#EF8EC1", 
+                             "#6471E1", "#F4800C", "cyan3", "darkgrey", "#BF0A3D"),
                            c("Stroma", "Epithelium", "Proliferating Epithelium", "M2 Macrophage", "Cytotoxic Cells",
-                             "CD8a+ T-lymphocytes", "IELs", "Undefined", "Tregs"))
+                             "CTLs", "T-Helpers", "IELs", "Undefined", "Tregs"))
 metadata(spe)$color_vectors$cellTypes <- cellTypeColors
 
 # Factor the cellTypes
 spe$cellTypes <- factor(spe$cellTypes, levels = c("Stroma", "Epithelium",
                                                   "Proliferating Epithelium", "M2 Macrophage",
-                                                  "Cytotoxic Cells", "CD8a+ T-lymphocytes", 
+                                                  "Cytotoxic Cells", "CTLs", "T-Helpers",
                                                   "IELs", "Tregs", "Undefined"))
 
 # Visualize the phenotyped clusters on the low dimensional embedding
@@ -247,7 +247,7 @@ clusterMeta <- data.frame(Cluster_Num = c(1:19),
                                         "Cytotoxic Cells", "Epithelium", "Stroma",
                                         "Undefined", "Stroma", "Epithelium", "Undefined",
                                         "Stroma", "Proliferating Epithelium", "M2 Macrophage",
-                                        "CD8a+ T-lymphocytes", "Epithelium", "CD8a+ T-lymphocytes",
+                                        "T-Helpers", "Epithelium", "CTLs",
                                         "Proliferating Epithelium", "Undefined", "Epithelium", "IELs"))
 clusterMeta$Cluster_Num <- paste("Cluster", rownames(clusterMeta), sep = " ")
 
@@ -255,7 +255,7 @@ clusterMeta$Cluster_Num <- paste("Cluster", rownames(clusterMeta), sep = " ")
 clusterMeta$Phenotype <- factor(clusterMeta$Phenotype, levels = 
                                   c("Stroma", "Epithelium",
                                     "Proliferating Epithelium", "M2 Macrophage",
-                                    "Cytotoxic Cells", "CD8a+ T-lymphocytes", 
+                                    "Cytotoxic Cells", "CTLs", "T-Helpers",
                                     "IELs", "Tregs", "Undefined"))
 
 
@@ -274,7 +274,7 @@ clusterMeta$Cluster_Num <- NULL
 
 # Ensure the colors are in the order of the factored levels
 phenotype_levels <- levels(clusterMeta$Phenotype)
-phenotype_colors <- setNames(c("#3F1B03", "#F4AD31", "#894F36", "#1C750C", "#EF8ECC", "#6471E2", "#4DB23B", "#BF0A3D", "grey"), 
+phenotype_colors <- setNames(c("#3F1B03", "#F4AD31", "#894F20", "#1C750C", "#EF8EC1", "#6471E1", "#F4800C", "cyan3", "#BF0A3D", "grey"), 
                              phenotype_levels)
 
 # Create the row annotation
@@ -285,10 +285,10 @@ CTAnno <- rowAnnotation(
 )
 
 # Order the columns
-colOrder <- c("E.Cadherin", "Pan.CK", "Ki67", 
-              "aSMA", "Vimentin", "Collagen.I",
+colOrder <- c("Ecadherin", "Pan_keratin", "Ki67", 
+              "aSMA", "Vimentin", "CollagenI",
               "CD45", "CD45RO", "CD3", "CD8a", "CD4", "FoxP3", 
-              "CD68", "CD163", "CD15", "GZMB")
+              "CD68", "CD163", "CD15", "GranzymeB")
 maxScaled <- maxScaled[,colOrder]
 
 # Clean up column names
@@ -331,8 +331,18 @@ dev.off()
 # Factor the cellTypes
 image_mean$cellTypes <- factor(image_mean$cellTypes, levels = c("Stroma", "Epithelium",
                                                                 "Proliferating Epithelium", "M2 Macrophage",
-                                                                "Cytotoxic Cells", "CD8a+ T-lymphocytes", 
+                                                                "Cytotoxic Cells", "CD8a+ T-lymphocytes", "CD4+ T-lymphocytes",
                                                                 "IELs", "Tregs", "Undefined"))
+
+# Aggregate clusters across cells by taking the mean cluster counts per cell
+image_mean <- aggregateAcrossCells(as(spe[rowData(spe)$use_channel], "SingleCellExperiment"), 
+                                   ids = spe$pg,
+                                   statistics = "mean",
+                                   use.assay.type = "counts")
+
+# Transform counts to expression values by arcsin transforming
+assay(image_mean, "exprs") <- asinh(counts(image_mean)/1)
+
 
 # Plot as a heatmap
 cellTypes_clusters <- dittoHeatmap(image_mean, genes = rownames(spe)[rowData(spe)$use_channel],
