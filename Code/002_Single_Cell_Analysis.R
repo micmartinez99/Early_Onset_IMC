@@ -562,9 +562,54 @@ propData$Sample <- rownames(propData)
 # Save results as a csv file
 write.csv(propData, file = "Outputs/002_Analysis/Cluster_Violins/CellType_Proportion_Data.csv")
 
+# Calculate fold changes
+eo_means <- as.data.frame(colMeans(propDataE[,c(1:10)]))
+colnames(eo_means) <- "EOCRC"
+lo_means <- as.data.frame(colMeans(propDataL[,c(1:10)]))
+colnames(lo_means) <- "LOCRC"
+
+# Calculate a fold change relative to early onset
+foldChange <- log2(lo_means/eo_means)
+
 # Pivot longer the dataframe
 propData <- propData %>%
   pivot_longer(-c("Sample", "Group"), names_to = "Cluster", values_to = "Proportion")
+
+fox <- propData[propData$Cluster == "Cytotoxic Cells",]
+eo <- fox[fox$Group == "EOCRC",]
+lo <- fox[fox$Group == "LOCRC",]
+test <- t.test(eo$Proportion, lo$Proportion, var.equal = FALSE)
+print(test)
+
+# Calculate p-values
+
+# Initialize a dataframe to hold p-values
+p_vals <- data.frame(Cluster = character(),
+                     P_Value = numeric(),
+                     stringsAsFactors = FALSE)
+
+# Iterate through the clusters and get p-value
+for (i in clusterNames) {
+  subset <- propData[propData$Cluster == i,]
+
+  # Split between early and late
+  eo <- subset[subset$Group == "EOCRC",]
+  lo <- subset[subset$Group == "LOCRC",]
+  
+  # Perform Welch's T-test
+  welch_res <- t.test(eo$Proportion, lo$Proportion)
+  pvalue <- welch_res$p.value
+  
+  # Append pvalue to dataframe
+  p_vals <- rbind(p_vals, data.frame(Cluster = i,
+                                     P_Value = pvalue))
+}
+
+# Append log2 fold change to p_vals df (NOTE: Log2FC is relative to early (i.e, Late/Early))
+p_vals$Log2FoldChange <- foldChange$LOCRC
+
+# Save pvalue dataframe
+write.csv(p_vals, file = "Outputs/002_Analysis/SingleCell/Log2FC_Pvalue_Cluster_Data.csv")
 
 # Set colors for early and late
 custom_colors <- c("EOCRC" = "firebrick2", "LOCRC" = "cyan3")
