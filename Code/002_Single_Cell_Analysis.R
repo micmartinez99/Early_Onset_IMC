@@ -177,7 +177,7 @@ for (i in clusters) {
 }
 
 # Save cell number information to a file
-write.csv(cellNums, file = "Outputs/004_SingleCell_Analysis/RPhenograh_Cluster_Membership_Numbers.csv")
+write.csv(cellNums, file = "Outputs/002_Analysis/SingleCell/RPhenograh_Cluster_Membership_Numbers.csv")
 
 ###############################################################################
 
