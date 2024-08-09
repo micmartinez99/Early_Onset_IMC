@@ -143,6 +143,42 @@ plot_list <- lapply(plot_list, function(x) x + scale_color_viridis(option = "B")
 markerPlots <- plot_grid(plotlist = plot_list) 
 ggsave("Outputs/002_Analysis/UMAPs/6_Markers_on_Harmony_Corrected_UMAP.tiff", markerPlots, width = 10, height = 10, dpi = 300)
 
+# Calculate how many cells are in each cluster
+clusters <- unique(spe$pg)
+
+# Initialize a dataframe to hold information about cell numbers
+cellNums <- data.frame(Cluster = factor(),
+                       Number_of_Cells = integer(),
+                       Percentage_of_Cells = numeric())
+
+# Iterate through the clusters and calculate how many cells are in each cluster
+# and what percentage of the data they encompass
+for (i in clusters) {
+  
+  # Total number of cells in spe object
+  total_cells <- ncol(spe)
+  
+  # Sum the number of cells in i-th cluster
+  clusterNum <- sum(spe$pg == i)
+  
+  # Calculate percentage
+  clusterPcnt <- (clusterNum/total_cells) * 100
+  
+  # Print information
+  print(paste("Cluster number", i, "contains", clusterNum, "cells", sep = " "))
+  print(paste("Cluster number", i, "is", clusterPcnt, "% of the data", sep = " "))
+  cat("\n")
+  
+  # Append information to dataframe
+  cellNums <- rbind(cellNums, data.frame(Cluster = i,
+                                         Number_of_Cells = clusterNum,
+                                         Percentage_of_Cells = clusterPcnt))
+  
+}
+
+# Save cell number information to a file
+write.csv(cellNums, file = "Outputs/004_SingleCell_Analysis/RPhenograh_Cluster_Membership_Numbers.csv")
+
 ###############################################################################
 
 # Assign celltypes to each cluster based on UMAPs 
