@@ -728,3 +728,88 @@ for (i in clusterNames) {
 spe <- readRDS("Data/001_Preprocessed/PG_Clustered_Spe.Rds")
 cellData <- as.data.frame(assay(spe, "exprs"))
 write.csv(cellData, file = "Outputs/001_Prepare_Spe_Objects_Outputs/All_Cell_Expression_Data.csv")
+
+# Split out the early and late onset
+early <- spe[,spe$Indication == "EOCRC"]
+eoCells <- as.data.frame(t(assay(early, "exprs")))
+eoCells$Group <- "Early"
+eoCells <- eoCells %>%
+  pivot_longer(-c(Group), names_to = "Values", values_to = "Expression")
+write.csv(eoCells, "Outputs/001_Prepare_Spe_Objects_Outputs/Early_Onset_Individual_Cells.csv")
+
+late <- spe[,spe$Indication == "LOCRC"]
+loCells <- as.data.frame(t(assay(late, "exprs")))
+loCells$Group <- "Late"
+loCells <- loCells %>%
+  pivot_longer(-c(Group), names_to = "Values", values_to = "Expression")
+write.csv(loCells, "Outputs/001_Prepare_Spe_Objects_Outputs/Late_Onset_Individual_Cells.csv")
+
+
+allCells <- as.data.frame(rbind(eoCells, loCells))
+markers <- unique(eoCells$Values)
+
+newDir("Outputs/001_Prepare_Spe_Objects_Outputs/Cell_Level")
+
+
+for (i in markers) {
+  subset <- allCells[allCells$Values == i,]
+  
+  plot <- ggplot(subset, aes(x = Group, y = Expression, fill = Group)) +
+    geom_jitter(size = 0.3, width = 0.1) +
+    geom_boxplot(outliers = FALSE, alpha = 0.5) +
+    stat_compare_means(method = "t.test", method.args = list(var.equal = FALSE)) +
+    labs(title = i,
+         y = "Raw Expression value / Cell",
+         x = "")
+  fileName <- paste(i, "Cell_Level_Comparison.tiff", sep = "_")
+  ggsave(paste("Outputs/001_Prepare_Spe_Objects_Outputs/Cell_Level", fileName, sep = "/"), plot, width = 8, height = 8, dpi = 300)
+}
+
+
+# Take the image mean 
+eo_mean <- aggregateAcrossCells(as(early, "SingleCellExperiment"), 
+                                   ids = early$sample_id,
+                                   statistics = "mean",
+                                   use.assay.type = "counts")
+assay(eo_mean, "exprs") <- asinh(counts(eo_mean)/1)
+eo_img <- as.data.frame(t(assay(eo_mean, "exprs")))
+eo_img$Group <- "Early"
+eo_img <- eo_img %>%
+  pivot_longer(-c(Group), names_to = "Markers", values_to = "Expression")
+
+lo_mean <- aggregateAcrossCells(as(late, "SingleCellExperiment"), 
+                                ids = late$sample_id,
+                                statistics = "mean",
+                                use.assay.type = "counts")
+assay(lo_mean, "exprs") <- asinh(counts(lo_mean)/1)
+lo_img <- as.data.frame(t(assay(lo_mean, "exprs")))
+lo_img$Group <- "Late"
+lo_img <- lo_img %>%
+  pivot_longer(-c(Group), names_to = "Markers", values_to = "Expression")
+
+allImg <- as.data.frame(rbind(eo_img, lo_img))
+
+newDir("Outputs/001_Prepare_Spe_Objects_Outputs/Image_Level")
+
+
+for (i in markers) {
+  subset <- allImg[allImg$Markers == i,]
+  
+  plot <- ggplot(subset, aes(x = Group, y = Expression, fill = Group)) +
+    geom_jitter(size = 3, width = 0.1) +
+    geom_boxplot(outliers = FALSE, alpha = 0.5) +
+    stat_compare_means(method = "t.test", method.args = list(var.equal = FALSE)) +
+    labs(title = i,
+         y = "Mean Expression value / Image",
+         x = "")
+  fileName <- paste(i, "Image_Level_Comparison.tiff", sep = "_")
+  ggsave(paste("Outputs/001_Prepare_Spe_Objects_Outputs/Image_Level", fileName, sep = "/"), plot, width = 8, height = 8, dpi = 300)
+}
+
+foxP3 <- allCells[allCells$Values == "FoxP3",]
+hist(foxP3$Expression)
+
+FOXP3 <- allImg[allImg$Markers == "FoxP3",]
+
+ggplot(foxP3, aes(x = Expression, fill = Group)) +
+  geom_density(alpha = 0.3) 
