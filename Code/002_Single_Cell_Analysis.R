@@ -645,6 +645,37 @@ for (i in clusterNames) {
   ggsave(paste("Outputs/002_Analysis/Cluster_Violins/Indication", fileName, sep = "/"), props, width = 10, height = 10, dpi = 300)
 }
 
+# Plot volcano plot
+# Fix label
+p_vals$Cluster <- ifelse(p_vals$Cluster == "T Helpers", "T-Helpers", p_vals$Cluster)
+
+# Add group
+p_vals$Group <- ifelse(p_vals$P_Value <= 0.05, "Sig",
+                       ifelse(p_vals$P_Value > 0.05 & abs(p_vals$Log2FoldChange) > 0.5, "FC", "nonSig"))
+
+# Map colors
+colors <- c("Sig" = "firebrick2", "FC"  = "blue", "nonSig" = "black")
+
+# Plot
+volcano <- ggplot(p_vals, aes(x = Log2FoldChange, y = -log10(P_Value), label = Cluster, color = Group)) +
+  geom_point() +
+  geom_text_repel() +
+  theme_classic() +
+  geom_vline(xintercept = -0.5, linetype = "dashed") +
+  geom_vline(xintercept = 0.5, linetype = "dashed") +
+  geom_hline(yintercept = 1.3, linetype = "dashed") +
+  scale_color_manual(values = colors) +
+  labs(y = "-log10(P value)",
+       x = "Log 2 Fold Change",
+       color = "") +
+  theme(legend.position = "none",
+        axis.title.x = element_text(face = "bold", size = 20),
+        axis.text.x = element_text(size = 14),
+        axis.title.y = element_text(face = "bold", size = 20),
+        axis.text.y = element_text(size = 14))
+ggsave("Outputs/002_Analysis/SingleCell/Cluster_Volcano_Plot.tiff", volcano, width = 6, height = 6, dpi = 300)
+
+
 ################################################################################
 
 # Create a data directory to hold the processed spe
