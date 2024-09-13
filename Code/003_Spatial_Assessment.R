@@ -436,7 +436,7 @@ for(i in celltypes) {
   ggsave(paste("Outputs/003_Spatial_Assessment/", fileName, sep = "/"), patchPlot3, width = 8, height = 8, dpi = 300)
 }
 
-
+################################################################################
 
 
 

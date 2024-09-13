@@ -7,6 +7,11 @@
 # The batches were manually combined into one steinbock folder (combined_steinbock)
 # by manually appending images in the /img/ folder and likewise for /masks_deepcell/
 
+# https://github.com/micmartinez99/Early_Onset_IMC
+
+# To get this code onto your computer, simply clone the repository to your machine.
+# You will have to go through and modify all the file paths. 
+
 ################################################################################
 
 # Clear environment

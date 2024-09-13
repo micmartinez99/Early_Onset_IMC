@@ -4,6 +4,11 @@
 # Now, in this script, we will phenotype the identified clusters and perform a single-cell analysis
 # based on these celltype identifications.
 
+# https://github.com/micmartinez99/Early_Onset_IMC
+
+# To get this code onto your computer, simply clone the repository to your machine.
+# You will have to go through and modify all the file paths. 
+
 ################################################################################
 
 # Clear the environment
