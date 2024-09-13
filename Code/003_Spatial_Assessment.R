@@ -1,4 +1,10 @@
-# The purpose of this script is to conduct a spatial analysis 
+# The purpose of this script is to conduct a spatial analysis on the early / late
+# onset imaging mass cytometry samples. 
+# A copy of this code is available on github 
+# https://github.com/micmartinez99/Early_Onset_IMC
+
+# To get this code onto your computer, simply clone the repository to your machine.
+# You will have to go through and modify all the file paths. 
 
 # Clear the environment
 rm(list = ls())
