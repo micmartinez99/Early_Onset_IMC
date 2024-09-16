@@ -26,6 +26,10 @@ library(Hmisc)
 library(scales)
 library(pheatmap)
 
+library(agridat)
+library(ghibli)
+library(ggdist)
+
 # Initialize a function to generate subdirectories
 newDir <- function(x) {
   if (!dir.exists(x)) {
@@ -401,6 +405,7 @@ for(i in celltypes) {
   # Save tabular data
   write.csv(nt_data, file = paste("Outputs/003_Spatial_Assessment", fileName, sep = "/"))
   
+  
   # Plot the percentages
   patchPlot2 <- ggplot(nt_data, aes(Indication, cell_freq, fill = Indication)) +
     geom_violin(alpha = 0.3, trim = FALSE, draw_quantiles = TRUE, scale = "width") +
@@ -423,8 +428,8 @@ for(i in celltypes) {
   
   # Plot the percentages
   patchPlot3 <- ggplot(nt_data, aes(Indication, cell_freq, fill = Indication)) +
-    geom_violin(alpha = 0.3, trim = FALSE, draw_quantiles = TRUE, scale = "width") +
-    geom_jitter(position = position_jitterdodge(jitter.width = 0.1, dodge.width = 0.25)) +
+    #geom_violin(alpha = 0.3, trim = FALSE, draw_quantiles = TRUE, scale = "width") +
+    #geom_jitter(position = position_jitterdodge(jitter.width = 0.1, dodge.width = 0.25)) +
     geom_boxplot(width = 0.1, outliers = FALSE, alpha = 0.3) +
     stat_compare_means(method = "t.test", method.args = list(var.equal = FALSE)) +
     scale_y_continuous(labels = scales::percent) +
@@ -437,13 +442,16 @@ for(i in celltypes) {
     theme(axis.text.x = element_text(face = "bold", size = 20),
           axis.title.y = element_text(face = "bold", size = 24),
           axis.text.y = element_text(size = 20),
-          legend.position = "none")
+          legend.position = "none") 
   fileName <- paste(i, "AllBlack_NonTumor_Patches.tiff", sep = "_")
-  ggsave(paste("Outputs/003_Spatial_Assessment/", fileName, sep = "/"), patchPlot3, width = 8, height = 8, dpi = 300)
+  ggsave(paste("Outputs/003_Spatial_Assessment", fileName, sep = "/"), patchPlot3, width = 8, height = 8, dpi = 300)
+
 }
 
 ################################################################################
 
+# Save RDS
+saveRDS(spe, file = "Data/003_Spatial/Spatial_Analysis_Spe.Rds")
 
 
 
