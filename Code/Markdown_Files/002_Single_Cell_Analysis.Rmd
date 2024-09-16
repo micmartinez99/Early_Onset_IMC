@@ -1,0 +1,360 @@
+Now that we have processed our `spatialExperiment` object and explored the clusters on the tissues (script 002_Cluster_Visualization.R), we can now start working on the single-cell analysis portion. Most of the sections of this code can be expanded upon in Section 10 of the Bodenmiller tutorial here: https://bodenmillergroup.github.io/IMCDataAnalysis/single-cell-visualization.html
+
+Again, a copy of the actual code can be found here: https://github.com/micmartinez99/Early_Onset_IMC.
+
+Let's get started
+```{r, load_libraries, echo = TRUE, eval = TRUE, messages = FALSE, warning = FALSE}
+
+# Load libraries
+library(imcRtools)
+library(cytomapper)
+library(RColorBrewer)
+library(scater)
+library(ggplot2)
+library(ggpubr)
+library(viridis)
+library(cowplot)
+library(patchwork)
+library(corrplot)
+library(Hmisc)
+library(tidyverse)
+library(dittoSeq)
+library(ComplexHeatmap)
+library(magick)
+library(scales)
+library(CATALYST)
+```
+
+In script `001_Prepare_Spe_Object.R`, we visualized the UMAP projections for sample_id and source. Here, just so we have a complete set of UMAPs, we will visualize all relevant metadata categories on UMAP. We have information for tumor stage now (after meeting with Dr. Chris Flynn, so we now have to append this to the `spe` object and eventually to our `img` and `mask` `cytoImageList` objects.)
+
+Here, in addition to the metadata categories being colored on the UMAP projections, we can also visualize the marker expression levels on the UMAP. 
+
+```{r UMAP_Projections, echo = TRUE, eval = TRUE, message = FALSE, warning = FALSE}
+
+# Read in the processed spe object
+spe <- readRDS("../../Data/001_Preprocessed/PG_Clustered_Spe.Rds")
+
+# Read in the metadata
+metadata <- read.csv("../../Data/Updated_Metadata.csv")
+samples <- unique(spe$sample_id)
+metadata <- metadata[metadata$Sample_ID %in% samples,]
+
+# Add a column for Stage
+spe$Stage <- metadata$Stage[match(spe$sample_id, metadata$Sample_ID)]
+
+# UMAP for sample_id
+dittoDimPlot(spe, var = "sample_id", 
+                           reduction.use = "UMAP_Harmony", size = 0.2) +
+  theme(axis.title.x = element_text(size = 24, face = "bold"),
+        axis.title.y = element_text(size = 24, face = "bold"),
+        axis.text.x = element_text(size = 14),
+        axis.text.y = element_text(size = 14),
+        title = element_text(size = 24, face = "bold"),
+        legend.position = "bottom") +
+  labs(title = "")
+
+# UMAP for Indication
+dittoDimPlot(spe, var = "Indication", 
+                           reduction.use = "UMAP_Harmony", size = 0.2, 
+                           color.panel = metadata(spe)$color_vectors$Indication) +
+  theme(axis.title.x = element_text(size = 24, face = "bold"),
+        axis.title.y = element_text(size = 24, face = "bold"),
+        axis.text.x = element_text(size = 14),
+        axis.text.y = element_text(size = 14),
+        title = element_text(size = 24, face = "bold"),
+        legend.position = "bottom") +
+  labs(title = "")
+
+# UMAP for Source
+dittoDimPlot(spe, var = "Source", 
+                         reduction.use = "UMAP_Harmony", size = 0.2, 
+                         color.panel = metadata(spe)$color_vectors$Source) +
+  theme(axis.title.x = element_text(size = 24, face = "bold"),
+        axis.title.y = element_text(size = 24, face = "bold"),
+        axis.text.x = element_text(size = 14),
+        axis.text.y = element_text(size = 14),
+        title = element_text(size = 24, face = "bold"),
+        legend.position = "bottom") +
+  labs(title = "")
+
+# UMAP for Stage
+dittoDimPlot(spe, var = "Stage", 
+                           reduction.use = "UMAP_Harmony", size = 0.2) +
+  theme(axis.title.x = element_text(size = 24, face = "bold"),
+        axis.title.y = element_text(size = 24, face = "bold"),
+        axis.text.x = element_text(size = 14),
+        axis.text.y = element_text(size = 14),
+        title = element_text(size = 24, face = "bold"),
+        legend.position = "bottom") +
+  labs(title = "")
+
+# UMAP for RPhenograph clusters
+dittoDimPlot(spe, var = "pg", 
+                       reduction.use = "UMAP_Harmony", size = 0.2, do.label = TRUE) +
+  theme(axis.title.x = element_text(size = 24, face = "bold"),
+        axis.title.y = element_text(size = 24, face = "bold"),
+        axis.text.x = element_text(size = 14),
+        axis.text.y = element_text(size = 14),
+        title = element_text(size = 30, face = "bold")) +
+  labs(title = "PG Clusters")
+
+# Clean up the rownames
+rownames(spe)[rowData(spe)$use_channel] <- c("aSMA", "Vimentin", "CD163", "Pan CK", "CD15",
+                                             "CD45", "FoxP3", "CD4", "E-Cadherin", "CD68", "CD8a", 
+                                             "GZMB", "Ki67", "Collagen I", "CD3", "CD45RO")
+
+# Visualize the marker expression on UMAP
+markers <- rownames(spe)[rowData(spe)$use_channel]
+plot_list <- multi_dittoDimPlot(spe, var = markers, reduction.use = "UMAP_Harmony", 
+                                assay = "exprs", 
+                                size = 0.2, 
+                                list.out = TRUE, 
+                                axes.labels.show = FALSE, 
+                                show.axes.numbers = FALSE, 
+                                show.grid.lines = FALSE,
+                                theme_classic())
+
+# Plot each individual markers expression
+plot_list <- lapply(plot_list, function(x) x + scale_color_viridis(option = "B") +
+                      theme(axis.title = element_text(face = "bold"),
+                            axis.ticks = element_blank(),
+                            strip.text = element_text(face = "bold"),
+                            title = element_text(face = "bold")))
+markerPlots <- plot_grid(plotlist = plot_list) 
+markerPlots
+```
+
+Now, we have visualized the marker expressions on the UMAPs along with the clusters. We also have the cluster heatmap and the images generated in script `002_Cluster_Visualization.R`.
+Based on all of this information, we can now assign labels to the clusters. Additionally, we will add a color vector to identify the clusters in downstream figures. 
+
+```{r cluster_IDs, echo = TRUE, eval = TRUE, message = FALSE, warning = FALSE}
+# Assign celltypes to each cluster based on UMAPs 
+spe$cellTypes <- ifelse(spe$pg == "1", "Tregs", 
+                        ifelse(spe$pg == "2", "Cytotoxic Cells",
+                               ifelse(spe$pg == "3", "Cytotoxic Cells",
+                                      ifelse(spe$pg == "4", "Epithelium",
+                                             ifelse(spe$pg == "5", "Stroma",
+                                                    ifelse(spe$pg == "6", "Undefined", 
+                                                           ifelse(spe$pg == "7", "Stroma",
+                                                                  ifelse(spe$pg == "8", "Epithelium",
+                                                                         ifelse(spe$pg == "9", "Undefined",
+                                                                                ifelse(spe$pg == "10", "Stroma",
+                                                                                       ifelse(spe$pg == "11", "Proliferating Epithelium",
+                                                                                              ifelse(spe$pg == "12", "M2 Macrophage",
+                                                                                                     ifelse(spe$pg == "13", "T-Helpers",
+                                                                                                            ifelse(spe$pg == "14", "Epithelium",
+                                                                                                                   ifelse(spe$pg == "15", "CTLs",
+                                                                                                                          ifelse(spe$pg == "16", "Proliferating Epithelium",
+                                                                                                                                 ifelse(spe$pg == "17", "Undefined",
+                                                                                                                                        ifelse(spe$pg == "18", "Epithelium", "IELs"))))))))))))))))))
+
+# Add a color vector to the metadata slot for celltypes
+cellTypeColors <- setNames(c("#3F1B03", "#894F20","#F4AD31", "#1C750C", "#EF8EC1", 
+                             "#6471E1", "#F4800C", "cyan3", "darkgrey", "#BF0A3D"),
+                           c("Stroma", "Epithelium", "Proliferating Epithelium", "M2 Macrophage", "Cytotoxic Cells",
+                             "CTLs", "T-Helpers", "IELs", "Undefined", "Tregs"))
+metadata(spe)$color_vectors$cellTypes <- cellTypeColors
+
+# Factor the cellTypes
+spe$cellTypes <- factor(spe$cellTypes, levels = c("Stroma", "Epithelium",
+                                                  "Proliferating Epithelium", "M2 Macrophage",
+                                                  "Cytotoxic Cells", "CTLs", "T-Helpers",
+                                                  "IELs", "Tregs", "Undefined"))
+
+# Visualize the phenotypes clusters on UMAP
+dittoDimPlot(spe, var = "cellTypes", 
+                          reduction.use = "UMAP_Harmony", 
+                          size = 0.2, 
+                          do.label = TRUE,
+                          labels.size = 4,
+                          labels.highlight = TRUE,
+                          color.panel = cellTypeColors) +
+  theme(axis.title.x = element_text(size = 24, face = "bold"),
+        axis.title.y = element_text(size = 24, face = "bold"),
+        axis.text.x = element_text(size = 14),
+        axis.text.y = element_text(size = 14),
+        title = element_text(size = 24, face = "bold")) +
+  labs(title = "")
+```
+
+We can now show the clusters on the tissues as an example
+
+```{r, Example_Image, echo = TRUE, eval = TRUE, message = FALSE, warning = FALSE}
+
+# Read in the images and masks
+masks <- readRDS("../../Data/Images/Final_Mask_Dataset.Rds")
+
+# Create a new colData entry in spe that will be a clean ID for plotting purposes
+spe$ID <- paste(gsub("_", " ", spe$sample_id), spe$Indication, sep = " ")
+mcols(masks)$ID <- paste(gsub("_", " ", mcols(masks)$sample_id), mcols(masks)$Indication, sep = " ")
+
+# Pick an ROI to visualize (you can change this to any ROI in the dataset)
+vis <- "ROI_002"
+cur_masks <- masks[names(masks) %in% vis]
+
+# Plot cell clusters on this ROI to visualize clustering
+plotCells(cur_masks,
+          object = spe, 
+          cell_id = "ObjectNumber", 
+          img_id = "ID",
+          colour_by = "cellTypes",
+          colour = list(cellTypes = metadata(spe)$color_vectors$cellTypes),
+          image_title = list(text = mcols(cur_masks)$ID,
+                             position = "top",
+                             colour = "white",
+                             margin = c(5,5),
+                             font = 2,
+                             cex = 1.3),
+          legend = list(colour_by.title.cex = 1,
+                        colour_by.labels.cex = 1,
+                        colour_by.title.font = 3,
+                        margin = 50))
+
+
+```
+
+Similarly to how we generated a heatmap for the RPhenograph clusters, we can now generate a heatmap for the phenotyped clusters. Here we will make the graphic a bit fancier than the `dittoHeatmap` generated in script `001_Prepare_Spe_Object.R` by using R package `complexHeatmap`. NOTE: There is a bug in `complexHeatmap` that will cause R to crash when you draw a heatmap. To fix this bug, you must load R package `magick` alongside `complexHeatmap`.
+
+```{r, Cluster_Heatmap, echo = TRUE, eval = TRUE, message = TRUE, warning = TRUE}
+# Aggregate clusters across cells by taking the mean cluster counts per cell
+image_mean <- aggregateAcrossCells(as(spe[rowData(spe)$use_channel], "SingleCellExperiment"), 
+                                   ids = spe$pg,
+                                   statistics = "mean",
+                                   use.assay.type = "counts")
+
+# Transform counts to expression values by arcsin transforming
+assay(image_mean, "exprs") <- asinh(counts(image_mean)/1)
+
+# Save the image mean data as a dataframe for manual plotting
+imdata <- as.data.frame(t(assay(image_mean, "exprs")))
+
+# Create a metadata dataframe for the PG clusters
+clusterMeta <- data.frame(Cluster_Num = c(1:19),
+                          Phenotype = c("Tregs", "Cytotoxic Cells",
+                                        "Cytotoxic Cells", "Epithelium", "Stroma",
+                                        "Undefined", "Stroma", "Epithelium", "Undefined",
+                                        "Stroma", "Proliferating Epithelium", "M2 Macrophage",
+                                        "T-Helpers", "Epithelium", "CTLs",
+                                        "Proliferating Epithelium", "Undefined", "Epithelium", "IELs"))
+clusterMeta$Cluster_Num <- paste("Cluster", rownames(clusterMeta), sep = " ")
+
+# Factor the celltypes
+clusterMeta$Phenotype <- factor(clusterMeta$Phenotype, levels = 
+                                  c("Stroma", "Epithelium",
+                                    "Proliferating Epithelium", "M2 Macrophage",
+                                    "Cytotoxic Cells", "CTLs", "T-Helpers",
+                                    "IELs", "Tregs", "Undefined"))
+
+
+# Function to max scale the image mean data
+max_scale <- function(x) {
+  (x - min(x)) / (max(x) - min(x))
+}
+
+# Apply the function to the dataframe
+maxScaled <- as.data.frame(lapply(imdata, max_scale))
+
+# Clean up the rownames for the max-scaled data and for the metadata
+rownames(maxScaled) <- paste("Cluster", rownames(maxScaled), sep = " ")
+rownames(clusterMeta) <- as.character(rownames(maxScaled))
+clusterMeta$Cluster_Num <- NULL
+
+# Ensure the colors are in the order of the factored levels
+phenotype_levels <- levels(clusterMeta$Phenotype)
+phenotype_colors <- setNames(c("#3F1B03", "#F4AD31", "#894F20", "#1C750C", "#EF8EC1", "#6471E1", "#F4800C", "cyan3", "#BF0A3D", "grey"), 
+                             phenotype_levels)
+
+# Create the row annotation
+CTAnno <- rowAnnotation(
+  `Cell Type` = clusterMeta$Phenotype,
+  col = list(`Cell Type` = phenotype_colors),
+  show_annotation_name = FALSE
+)
+
+# Order the columns
+colOrder <- c("E.Cadherin", "Pan.CK", "Ki67", 
+              "aSMA", "Vimentin", "Collagen.I",
+              "CD45", "CD45RO", "CD3", "CD8a", "CD4", "FoxP3", 
+              "CD68", "CD163", "CD15", "GZMB")
+maxScaled <- maxScaled[,colOrder]
+
+# Clean up column names
+colnames(maxScaled) <- c("E-cadherin", "Pan-CK", "Ki67", "aSMA", "Vimentin", "Collagen I", "CD45",
+                         "CD45RO", "CD3", "CD8a", "CD4", "FoxP3", "CD68", "CD163", "CD15", "GZMB")
+
+# Set splitting pattern
+hmSplit <- rep(1:5, c(3,3,6,2,2))
+
+# Add metadata features
+anno <- colData(image_mean) %>% 
+  as.data.frame %>%
+  select(cellTypes, ncells)
+
+# Add number of cells per cluster as a row annotation
+ha_meta <- rowAnnotation(`Number Cells` = anno_barplot(anno$ncells, width = unit(30, "mm")))
+
+# Plot the heatmap                     
+Heatmap(as.matrix(maxScaled),
+        show_column_names = TRUE,
+        name = "Max Scale",
+        cluster_rows = TRUE,
+        cluster_columns = TRUE,
+        left_annotation = CTAnno,
+        column_title = NULL,
+        column_split = hmSplit,
+        gap = unit(1, "mm"),
+        row_title = NULL,
+        col = rev(colorRampPalette(brewer.pal(11, "RdYlBu"))(100)),
+        row_dend_width = unit(2, "cm"),
+        column_dend_height = unit(2, "cm"),
+        row_dend_gp = gpar(lwd = 2.5),
+        column_dend_gp = gpar(lwd = 2.5),
+        right_annotation = ha_meta)
+```
+Next, we can visualize a stacked barplot showing the cell type composition for each individual sample split by Indication. Doing this is a visual way of differential cell type abundance. We will run actual statisitcs on these differences in a later code chunk, but the visualization will comprise one panel of a figure. 
+We want one that is the absolute cell number per sample and then one that is scaled to be a perentage. 
+
+```{r, compositional_barplots, echo = TRUE, eval = TRUE, message = FALSE, warning = FALSE}
+
+# Plot a compositional barplot
+dittoBarPlot(spe, 
+             var = "cellTypes", 
+             group.by = "sample_id",
+             split.by = "Indication",
+             split.adjust = list(scales = "free")) +
+  scale_fill_manual(values = metadata(spe)$color_vectors$cellTypes) +
+  scale_y_continuous(labels = percent_format()) +
+  labs(y = "Percent of Cells",
+       x = "",
+       fill = "",
+       title = "") +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_text(face = "bold", size = 24),
+        strip.text = element_text(face = "bold", size = 24),
+        legend.position = "none")
+
+# Plot the number of cells per ROI
+dittoBarPlot(spe, 
+             scale = "count",
+             var = "cellTypes", 
+             group.by = "sample_id",
+             split.by = "Indication",
+             split.adjust = list(scales = "free")) +
+  scale_fill_manual(values = metadata(spe)$color_vectors$cellTypes) +
+  labs(y = "Number of Cells",
+       x = "",
+       fill = "",
+       title = "") +
+  theme(axis.title.x = element_blank(),
+        axis.text.x = element_blank(),
+        axis.title.y = element_text(face = "bold", size = 24),
+        strip.text = element_text(face = "bold", size = 24),
+        axis.ticks.x = element_blank(),
+        legend.position = "none")
+
+```
+
+We can now assess the significance of the clusters between early and late. For the code to achieve this, please see the code file `002_Single_Cell_Analysis.R`.
+Make sure to save an RDS file of the `spatialExperiment` object for downstream code. 
+
+

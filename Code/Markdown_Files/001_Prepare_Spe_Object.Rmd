@@ -1,0 +1,384 @@
+---
+output:
+  html_document: default
+  pdf_document: default
+---
+The purpose of this script is to generate a `spatialExperiment` object using the `imcRtools` package and  `cytoimagelist` objects using `cytomapper`. These objects will facilitate the analysis of our imaging mass cytometry data for the early-onset project. The input of this script will be the combined_steinbock folder that was manually curated from multiple runs of Steinbock (Steinbock is ran for every MCD file that we have.)
+
+Overall, 3 batches of IMC were ran: 1 at The Jackson Lab's Single Cell Biology Core, and 2 at Standard BioTools. It is very importnant to note that the panels across these 3 batches were NOT identifical. As a result, we focussed on just Standard BioTools samples because they had higher quality staining and we wanted to keep the panel consistent. From these samples, Dr. Chris Flynn (board-certified pathologist) and I (Mike Martinez), picked the best of the best samples from the dataset we had. 
+
+The code for this repositoy can be found at 
+https://github.com/micmartinez99/Early_Onset_IMC
+
+To get this code onto your computer, simply clone the repository to your machine. You will have to go through and modify all the file paths within this code. 
+
+This Rmarkdown file is simply so that whoever is reading this can see the outputs as they were ran and not have to sift through files to find the correct output (although, you could just look at the filepaths and filenames in the code and do find it that way...I thought this might be a little less cumbersome.)
+
+The following link is an amazing resource from the Bodenmiller lab for IMC analysis in R: 
+https://bodenmillergroup.github.io/IMCDataAnalysis/
+
+It is worth knowing that no spillover slide was generated for this stude (section 6 in the above link). This was definitely not ideal, but it is what it is. Most image and cell-level quality control (section 7) was performed in a separate script but not included here.
+
+Let's get started!!
+
+```{r, Library_Loading, echo = TRUE, eval = TRUE, tidy = TRUE, message = FALSE, warning = FALSE}
+# Load libraries
+library(imcRtools) # For spatialExperiment object generation
+library(cytomapper) # For plotting pixels and cells
+library(tidyverse) # Data manipulation
+library(RColorBrewer) # Color palettes
+library(viridis) # Color palettes
+library(scater) # Single-cell analysis
+library(harmony) # Batch correction
+library(BiocSingular) # Batch correction
+library(patchwork) # Plotting
+library(cowplot) # Plotting
+library(dittoSeq) # Single-cell analysis
+library(Rphenograph) # For clustering
+library(igraph) # For clustering
+library(ggplot2) # For plotting
+library(ggpubr) # For statistical testing on plots
+```
+
+
+In this next chunk, we will read in the steinbock folder (which contains our `cells.csv` file). Upon reading in this folder, we have successfully generated the variable `spe` which is a `spatialExperiment` object. For more information on the architecture of a `spatialExperiment` object, see here: https://www.bioconductor.org/packages/release/bioc/vignettes/SpatialExperiment/inst/doc/SpatialExperiment.html
+For reference: in the Bodenmiller tutorial, this is section 5. Most of the details are explained fully in there. 
+
+```{r, Load_Spe, echo = TRUE, eval = TRUE, tidy = TRUE}
+# Read in the Steinbock folder
+spe <- read_steinbock("../../Data/combined_steinbock")
+```
+
+Our sample names are really long...we really just want our sample name to be the ROI number for interpretability. We will append additional metadata later in this code, so don't worry! We also manually visually assessed all markers on all 26 ROIs and determined that 7 of them are not suitable for use in this analysis. In addition to those 7, DNA1, DNA2, and the 3 segmentation kit markers (ICSK1,2,3) do not provide useful information for cell phenotyping, and we won't need to include them in the analysis. 
+```{r, Cleaning, echo = TRUE, eval = TRUE, tidy = TRUE}
+
+# Make sample_id more interpretable
+spe$sample_id <- sub("Slide1-6_CRCTMA1_CRCTMA2_", "ROI_", spe$sample_id)
+spe$sample_id <- sub("Slide2-5_CRCTMA3_CRCTMA4_", "ROI_", spe$sample_id)
+
+# Check that there are 26 unique sample_id
+length(unique(spe$sample_id))
+
+# For any markers that have a hyphen in their name, replace the hypen with an underscore
+rownames(spe) <- gsub("\\-", "_", rownames(spe))
+
+# Specify a subset of the channels that will be used for all downstream analysis
+rowData(spe)$use_channel <- !grepl("DNA1|DNA2|ICSK1|ICSK2|ICSK3|CD14|CD31|CD11c|CD45RA|Perforin|Pan_actin|CD45RA", rownames(spe))
+```
+
+Using our metadata file `Updated_Metadata.csv`, we can add additional information about each sample to our `spatialExperiment` object. The following code chunk shows how to achieve this.
+```{r, Metadata_Appending_I, echo = TRUE, eval = TRUE, tidy = TRUE}
+
+# Metadata processing
+metadata <- read.csv("../../Data/Updated_Metadata.csv")
+
+# Add a column for Indication
+spe$Indication <- metadata$Indication[match(spe$sample_id, metadata$Sample_ID)]
+
+# Add a column for Patient ID
+spe$Patient_ID <- metadata$Patient_ID[match(spe$sample_id, metadata$Sample_ID)]
+
+# Add a column for Source
+spe$Source <- metadata$Source[match(spe$sample_id, metadata$Sample_ID)]
+
+# Add a column for Sex
+spe$Sex <- metadata$Sex[match(spe$sample_id, metadata$Sample_ID)]
+
+# Add a column for Age
+spe$Age <- metadata$Age[match(spe$sample_id, metadata$Sample_ID)]
+
+# Add a column for Diagnosis
+spe$Diagnosis <- metadata$Diagnosis[match(spe$sample_id, metadata$Sample_ID)]
+
+# Add a column for Stage
+spe$Stage <- metadata$Stage[match(spe$sample_id, metadata$Sample_ID)]
+
+# Add a column for Metastasis
+spe$Mets <- metadata$Mets[match(spe$sample_id, metadata$Sample_ID)]
+
+# Add a column for "Keep"
+spe$Keep <- metadata$Analysis[match(spe$sample_id, metadata$Sample_ID)]
+
+# Add a column for diagnosis
+spe$Diagnosis <- metadata$Diagnosis[match(spe$sample_id, metadata$Sample_ID)]
+
+# Add a column for stage
+spe$Stage <- metadata$Stage[match(spe$sample_id, metadata$Sample_ID)]
+```
+
+As aforementioned, we decided that some samples were not fit for analysis, so there is a column in out metadata called "keep".
+Here, we will subset our `spatialExperiment` object. To subset, we can essentially treat the colData of `spe` as a dataframe and subset based on the columns. 
+```{r, Filtering, echo = TRUE, eval = TRUE, tidy = TRUE}
+# Subset the spe object based on the "keep" vector
+spe <- spe[,spe$Keep == "Keep"]
+unique(spe$sample_id)
+
+# Set cell names
+colnames(spe) <- paste0('cell', seq_len(ncol(spe)))
+
+# Filter the metadata
+meta <- metadata[metadata$Analysis == "Keep",]
+rownames(meta) <- meta$Sample_ID
+```
+
+Now that we have all of our metadata appended to the `spe` object, we can assign color-vectors for each metadata category that will be used for plotting downstream. We do this for consistency sake. These can always be changed later if you think they look ugly!
+```{r, Color_Vectors, echo = TRUE, eval = TRUE, tidy = TRUE}
+
+# Initialize an empty list to hold the color vectors in the spe object
+color_vectors <- list()
+
+# Set colors for EOCRC and LOCRC
+indication_colors <- c("EOCRC" = "firebrick2",
+                       "LOCRC" = "cyan3")
+
+sex_colors <- c("M" = "black",
+                "F" = "grey")
+
+source_colors <- c("JDH" = "green",
+                   "WBH" = "purple")
+
+# Append vectors to color list
+color_vectors$Indication <- indication_colors
+color_vectors$Sex <- sex_colors
+color_vectors$Source <- source_colors
+
+# Append color list to metadata slot in spe
+metadata(spe)$color_vectors <- color_vectors
+```
+
+Our `spe` object is now pre-processed (note, I say "pre-processed" because much like a single-cell experiment, as we add aspects of the analysis, our `spatialExperiment` object will gain new slots and get bigger and bigger. This will be the "processing")
+We can now shift our focus to the images and masks of the IMC experiment. These images and masks will interface with the package `cytomapper` through objects called `cytoImageLists`. For more on the `cytoImageList` class, see here: https://www.bioconductor.org/packages/release/bioc/vignettes/cytomapper/inst/doc/cytomapper.html
+
+A critical step is ensuring that the sample names and number of samples are the same between your `cytoImageList` objects and `spe` object.
+
+```{r, Image_Mask_Loading, echo = TRUE, eval = TRUE, tidy = TRUE}
+
+# Read in the Images
+img <- loadImages("../../Data/combined_steinbock/img/")
+
+# Adjust sample IDs for images/masks to match spe
+names(img) <- sub("Slide1-6_CRCTMA1_CRCTMA2_", "ROI_", names(img))
+names(img) <- sub("Slide2-5_CRCTMA3_CRCTMA4_", "ROI_", names(img))
+
+# Set a vector of the samples that we are keeping (only WBH and only tumor)
+keep <- metadata[metadata$Analysis == "Keep",]$Sample_ID
+
+# Filter the images based on the vector of samples to keep
+img <- img[names(img) %in% keep]
+
+# Read in the masks
+masks <- loadImages("../../Data/combined_steinbock/masks_deepcell/", as.is = TRUE)
+
+# Adjust sample IDs for images/masks to match spe
+names(masks) <- sub("Slide1-6_CRCTMA1_CRCTMA2_", "ROI_", names(masks))
+names(masks) <- sub("Slide2-5_CRCTMA3_CRCTMA4_", "ROI_", names(masks))
+
+# Filter the masks based on the vector of samples to keep
+masks <- masks[names(masks) %in% keep]
+
+# Ensure that channel names for images match the spe object
+channelNames(img) <- rownames(spe)
+
+# Check that all images/masks are there and sample_ids are the same as spe
+length(names(img))
+names(img)
+length(names(masks))
+names(masks)
+
+# Set image names across images/masks and spe
+mcols(img) <- mcols(masks) <- DataFrame(sample_id = names(img))
+```
+
+We now have two `cytoImageList` objects, `img` and `masks`.
+Just like with the `spatialExperiment` object, we need to append the metadata to our `cytoImageList` objects.
+
+```{r, Metadata_Appeding_II, echo = TRUE, eval = TRUE, tidy = TRUE}
+
+# Get metadata in the same order as the images
+rownames(metadata) <- metadata$Sample_ID
+metadata <- metadata[names(img),]
+
+# Only keep the samples we want to include
+metadata <- metadata[metadata$Analysis == "Keep",]
+metadata <- metadata[names(img),]
+
+# Generate vectors to append metadata to images
+EorL <- metadata$Indication
+Pat <- metadata$Patient_ID
+Sex <- metadata$Sex
+Diag <- metadata$Diagnosis
+Stag <- metadata$Stage
+Age <- metadata$Age
+Source <- metadata$Source
+
+# Assign the metadata to the images and masks as well
+mcols(img) <- mcols(masks) <- DataFrame(sample_id = names(img),
+                                        Indication = EorL,
+                                        Patient = Pat,
+                                        Sex = Sex,
+                                        Diagnosis = Diag,
+                                        Stage = Stag, 
+                                        Age = Age,
+                                        Source = Source)
+
+# Add a label slot to mcols for downstream plotting
+mcols(img)$Label <- paste(paste(paste(mcols(img)$sample_id, mcols(img)$Sex, sep = " - "), mcols(img)$Source, sep = "\n"),
+                          mcols(img)$Indication, sep = " - ")
+mcols(masks)$Label <- paste(paste(paste(mcols(masks)$sample_id, mcols(masks)$Sex, sep = " - "), mcols(masks)$Source, sep = "\n"),
+                          mcols(masks)$Indication, sep = " - ")
+```
+
+Now, we have successfully generated our `spatialExperiment` and `cytoImageList` objects. Now, we can start processing our `spatialExperiment` object.
+First, we will transform the expression values by using the hyperbolic sine transformation which is typical of cytometry data. For this, we use a cofactor of 1. For flow-cytometry data, we would normally use 5, but since imaging-mass cytometry is different, 1 seems to work best. You can read more about this in the following manuscript: https://www.biorxiv.org/content/10.1101/2023.02.21.526083v1
+
+We achieve this by creating a new assay slot in our `spatialExperiment` object called "exprs".
+Next, we will perform dimensionality reduction using the UMAP algorithm to visualize our dataset in 2-dimensional space. Doing this can identify if there are any troublesome batch effects that need to be taken care of. 
+
+```{r, Expression_UMAP, echo = TRUE, eval = TRUE, tidy = TRUE}
+
+# Transform the counts to expression values
+assay(spe, "exprs") <- asinh(counts(spe)/1)
+
+# Run Dimensionality reduction on the spe object
+set.seed(030161999)
+spe <- runUMAP(spe, subset_row = rowData(spe)$use_channel, exprs_values = "exprs")
+
+# Assess the UMAP
+dittoDimPlot(spe, var = "sample_id", 
+             reduction.use = "UMAP", size = 0.2) +
+  ggtitle("UMAP of Sample")
+
+dittoDimPlot(spe, var = "Source", 
+             reduction.use = "UMAP", size = 0.2) +
+  ggtitle("UMAP of Source")
+```
+
+As evident in the UMAP, each sample's cells are clustering independently from other ROIs. This is essentially a "batch" effect. Additionally, samples from JDH cluster separately from WBH. We need to address this batch effect before moving on or else out data will be uninterpretable. To handle this, we will make use of the `Harmony` package and algorithm. To read about how this algorithm works, see here: https://www.nature.com/articles/s41592-019-0619-0
+This information is encompassed in section 8 in the Bodenmiller tutorial.
+
+The PCA step might cause a warning message such as "Warning in check_numbers (x, k = k, nu = nu, nv = nv): more singular values/vectors requested than available. 
+You can ignore this!
+
+```{r, Harmony_Correction, echo = TRUE, eval = TRUE, tidy = TRUE, message = FALSE, warning = FALSE}
+# Run PCA on the data to prepare for Harmony batch correction
+set.seed(03061999)
+spe <- runPCA(spe,
+              subset_row = rownames(spe)[rowData(spe)$use_channel],
+              exprs_values = "exprs",
+              ncomponents = 50,
+              BSPARAM = ExactParam())
+
+# Run Harmony correction
+set.seed(03061999)
+out <- RunHarmony(spe, group.by.vars = c("sample_id", "Source"))
+
+# Add Harmony correction to the reduced dimensions slot
+reducedDim(spe, "Harmony") <- reducedDim(out, "HARMONY")
+spe <- runUMAP(spe, dimred = "Harmony", name = "UMAP_Harmony")
+
+# Assess the batch correction
+dittoDimPlot(spe, var = "sample_id", 
+             reduction.use = "UMAP_Harmony", size = 0.2) +
+  ggtitle("Harmony Corrected Sample ID UMAP")
+
+# Assess the batch correction
+dittoDimPlot(spe, var = "Source", 
+             reduction.use = "UMAP_Harmony", size = 0.2) +
+  ggtitle("Harmony Corrected Source UMAP")
+```
+
+Now that the batch effect has been handled, we can move onto a key aspect of imaging mass cytometry analysis which is cell clustering. A common step during single-cell data analysis is the annotation of cells based upon their phenotype. Definig cell phenotypes is often subjective and relies on previous biological knowledge. 
+See: https://bioconductor.org/books/release/OSCA.basic/cell-type-annotation.html for some approaches to phenotype cells.
+In highly-multiplexed imaging, target proteins or molecules are manually selected based on the biological question at hand. This narrows down feature space and facilitates manual annotation of clusters to derive cell phenotypes. 
+
+It is VERY important to understand a rather large pitfall of our data...imaging mass cytometry suffers from "lateral spillover" between neighboring cells. This spillover is caused by imperfect segmentation which can hinder accurate clustering to define specific cell types. As such, some clusters might exhibit bizarre marker combinations. We did NOT generate a spillover slide to correct for this spillover which makes the chance of these "weird" clusters occuring much higher. 
+
+For this dataset, we will make use of the `Rphenograph` algorithm. You can read more about this algorithm here: https://github.com/JinmiaoChenLab/Rphenograph 
+Phenograph is a clustering method designed for high-dimensional single-cell data. It works by creating a graph ("network") representing phenotypic similarities between cells and then identifying communities in this graph. It supports both Louvain and Leiden algorithms for community detection. 
+
+Here, we extract the Harmony-corrected (integrated) cells from the spe object and run `RPhenograph` with k = 45. We can then add the cluster information directly to the `spatialExperiment` object as a colData category. 
+
+
+```{r, Rphenograph_clustering, eval = TRUE, echo = TRUE, warning = FALSE, message = FALSE}
+
+# Extract the Harmony corrected feature table from the spe object
+mat <- reducedDim(spe, "Harmony")
+
+# Set seed and run Rphenograph algorithm
+set.seed(03061999)
+out <- Rphenograph(mat, k = 45)
+
+# Factor the clusters
+clusters <- factor(membership(out[[2]]))
+
+# Append clusters to the spe object
+spe$pg <- clusters
+
+```
+
+At this point, we reconveened with Dr. Flynn and decided to remove an additional 2 samples. At this point, doing so is fine. We are essentially just choosing to not consider these two samples in the downstream analysis. 
+Below, we remove these two samples from the `spatialExperiment` object as well as from the `cytoImageList` objects. 
+
+```{r, remove_samples, echo = TRUE, eval = TRUE, warning = FALSE, message = FALSE}
+
+# Remove ROI 032 and 035
+spe <- spe[,spe$sample_id != "ROI_032"]
+spe <- spe[,spe$sample_id != "ROI_035"]
+
+# Remove the two images we don't want from the analysis images and masks
+img[["ROI_032"]] <- NULL
+img[["ROI_035"]] <- NULL
+masks[["ROI_032"]] <- NULL
+masks[["ROI_035"]] <- NULL
+
+```
+
+Now, we can assess the marker composition of these clusters by aggregating the expression across cells. What this means is that for all the cells in cluster X, we take the average expression of each marker within this cluster. We then repeat this for all other clusters. We then transform these mean counts back into expression values. This can then be used as an input to plot a heatmap. There are various ways in which you can scale the heatmap, which will change the visualization slightly. 
+No scaling will plot just the mean values with no transformation or scaling applied. 
+Z-score will Z-score acorss the rows.
+Minmax scaling will scale all marker expresion between 0 and 1. 
+
+```{r, image_mean_cluster_heatmap, echo = TRUE, eval = TRUE, warning = FALSE, message = FALSE}
+
+# Take the image mean 
+image_mean <- aggregateAcrossCells(as(spe[rowData(spe)$use_channel], "SingleCellExperiment"), 
+                                   ids = spe$pg,
+                                   statistics = "mean",
+                                   use.assay.type = "counts")
+assay(image_mean, "exprs") <- asinh(counts(image_mean)/1)
+
+# Plot Heatmap
+dittoHeatmap(image_mean, genes = rownames(spe)[rowData(spe)$use_channel],
+             assay = "exprs", 
+             cluster_cols = TRUE, 
+             scaled.to.max = TRUE,
+             heatmap.colors.max.scaled = rev(colorRampPalette(brewer.pal(11, "RdYlBu"))(100)),  
+             annot.by = c("pg"),
+             show_colnames = TRUE)
+```
+
+From here, you can begin assessing differences between these clusters using `cytomapper`.
+For example: Section 11 in the Bodenmiller tutorial will highlight various ways of plotting out clusters directly onto the images to verify their identity. Before you do this though, you will want to normalize the image expression values within the `cytoImageList` object. 
+Below is a two step normalization procedure. Normalization here means to scale the pixel intensities per channel between 0 and 1 (or a range specified by the `ft` parameter in the `normalize` function). By default, the `normalize` function scales pixel intensities across ALL images contained in the `cytoImageList` object (`separateImages = FALSE`). Each individual channel is scaled independently (`separateChannels = TRUE`).
+
+After 0-1 normalization, maximum pixel intensities can be clipped to enhance the contrast of the image (setting the `inputRange` parameter). In the following example, the clipping to 0 and 0.2 is the same as multiplying the pixel intensities by a factor of 5. 
+
+Make sure to save the images and masks as Rds files so you don't need to re-do all of this every time you need to use images and masks. 
+
+```{r, normalize_Img, echo = TRUE, eval = TRUE, warning = FALSE, message = FALSE}
+
+# Normalize the images
+img <- cytomapper::normalize(img, separateImages = TRUE)
+images <- cytomapper::normalize(img, inputRange = c(0,0.2))
+
+```
+
+In the actual code file for this analysis (in the code directory), there is additional analysis performed where we test for differential abundance of each cluster based on Indication, Sex, and a combination of sex and indication. 
+Be sure to save Rds files of the following objects
+
+1.) `spatialExperiment` object
+2.) Images `cytoImageList` object
+3.) Masks `cytoImageList` object
+
+
+
