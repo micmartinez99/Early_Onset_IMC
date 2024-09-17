@@ -1,7 +1,10 @@
 ---
+title: "EOCRC Analysis 001: Preparing SpatialExperiment and CytoImageList Objects"
+subtitle: "Dimensionality Reduction and Batch Correction"
+author: "Michael Martinez M.Sc."
 output:
-  html_document: default
   pdf_document: default
+  html_document: default
 ---
 The purpose of this script is to generate a `spatialExperiment` object using the `imcRtools` package and  `cytoimagelist` objects using `cytomapper`. These objects will facilitate the analysis of our imaging mass cytometry data for the early-onset project. The input of this script will be the combined_steinbock folder that was manually curated from multiple runs of Steinbock (Steinbock is ran for every MCD file that we have.)
 
@@ -234,7 +237,7 @@ First, we will transform the expression values by using the hyperbolic sine tran
 We achieve this by creating a new assay slot in our `spatialExperiment` object called "exprs".
 Next, we will perform dimensionality reduction using the UMAP algorithm to visualize our dataset in 2-dimensional space. Doing this can identify if there are any troublesome batch effects that need to be taken care of. 
 
-```{r, Expression_UMAP, echo = TRUE, eval = TRUE, tidy = TRUE}
+```{r, Expression_UMAP, echo = TRUE, eval = TRUE, tidy = TRUE, fig.width = 10, fig.height = 10}
 
 # Transform the counts to expression values
 assay(spe, "exprs") <- asinh(counts(spe)/1)
@@ -259,7 +262,7 @@ This information is encompassed in section 8 in the Bodenmiller tutorial.
 The PCA step might cause a warning message such as "Warning in check_numbers (x, k = k, nu = nu, nv = nv): more singular values/vectors requested than available. 
 You can ignore this!
 
-```{r, Harmony_Correction, echo = TRUE, eval = TRUE, tidy = TRUE, message = FALSE, warning = FALSE}
+```{r, Harmony_Correction, echo = TRUE, eval = TRUE, tidy = TRUE, message = FALSE, warning = FALSE, fig.width = 10, fig.height = 10}
 # Run PCA on the data to prepare for Harmony batch correction
 set.seed(03061999)
 spe <- runPCA(spe,
@@ -338,7 +341,7 @@ No scaling will plot just the mean values with no transformation or scaling appl
 Z-score will Z-score acorss the rows.
 Minmax scaling will scale all marker expresion between 0 and 1. 
 
-```{r, image_mean_cluster_heatmap, echo = TRUE, eval = TRUE, warning = FALSE, message = FALSE}
+```{r, image_mean_cluster_heatmap, echo = TRUE, eval = TRUE, warning = FALSE, message = FALSE, fig.width = 10, fig.height = 14}
 
 # Take the image mean 
 image_mean <- aggregateAcrossCells(as(spe[rowData(spe)$use_channel], "SingleCellExperiment"), 

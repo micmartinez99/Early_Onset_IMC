@@ -1,9 +1,19 @@
+---
+title: "EOCRC Analysis 002: Single Cell Analysis"
+subtitle: "Cell Phenotyping"
+author: "Michael Martinez M.Sc."
+output:
+  pdf_document: default
+  html_document: default
+---
+
+
 Now that we have processed our `spatialExperiment` object and explored the clusters on the tissues (script 002_Cluster_Visualization.R), we can now start working on the single-cell analysis portion. Most of the sections of this code can be expanded upon in Section 10 of the Bodenmiller tutorial here: https://bodenmillergroup.github.io/IMCDataAnalysis/single-cell-visualization.html
 
 Again, a copy of the actual code can be found here: https://github.com/micmartinez99/Early_Onset_IMC.
 
 Let's get started
-```{r, load_libraries, echo = TRUE, eval = TRUE, messages = FALSE, warning = FALSE}
+```{r, load_libraries, echo = TRUE, eval = TRUE, message = FALSE, warning = FALSE}
 
 # Load libraries
 library(imcRtools)
@@ -29,7 +39,7 @@ In script `001_Prepare_Spe_Object.R`, we visualized the UMAP projections for sam
 
 Here, in addition to the metadata categories being colored on the UMAP projections, we can also visualize the marker expression levels on the UMAP. 
 
-```{r UMAP_Projections, echo = TRUE, eval = TRUE, message = FALSE, warning = FALSE}
+```{r UMAP_Projections, echo = TRUE, eval = TRUE, message = FALSE, warning = FALSE, fig.width = 10, fig.height = 10}
 
 # Read in the processed spe object
 spe <- readRDS("../../Data/001_Preprocessed/PG_Clustered_Spe.Rds")
@@ -123,11 +133,261 @@ plot_list <- lapply(plot_list, function(x) x + scale_color_viridis(option = "B")
 markerPlots <- plot_grid(plotlist = plot_list) 
 markerPlots
 ```
+```{r UMAP_Projections_II, echo = TRUE, eval = TRUE, message = FALSE, warning = FALSE, fig.width = 10, fig.height = 10}
+
+# UMAP for Indication
+dittoDimPlot(spe, var = "Indication", 
+                           reduction.use = "UMAP_Harmony", size = 0.2, 
+                           color.panel = metadata(spe)$color_vectors$Indication) +
+  theme(axis.title.x = element_text(size = 24, face = "bold"),
+        axis.title.y = element_text(size = 24, face = "bold"),
+        axis.text.x = element_text(size = 14),
+        axis.text.y = element_text(size = 14),
+        title = element_text(size = 24, face = "bold"),
+        legend.position = "bottom") +
+  labs(title = "")
+
+# UMAP for Source
+dittoDimPlot(spe, var = "Source", 
+                         reduction.use = "UMAP_Harmony", size = 0.2, 
+                         color.panel = metadata(spe)$color_vectors$Source) +
+  theme(axis.title.x = element_text(size = 24, face = "bold"),
+        axis.title.y = element_text(size = 24, face = "bold"),
+        axis.text.x = element_text(size = 14),
+        axis.text.y = element_text(size = 14),
+        title = element_text(size = 24, face = "bold"),
+        legend.position = "bottom") +
+  labs(title = "")
+
+# UMAP for Stage
+dittoDimPlot(spe, var = "Stage", 
+                           reduction.use = "UMAP_Harmony", size = 0.2) +
+  theme(axis.title.x = element_text(size = 24, face = "bold"),
+        axis.title.y = element_text(size = 24, face = "bold"),
+        axis.text.x = element_text(size = 14),
+        axis.text.y = element_text(size = 14),
+        title = element_text(size = 24, face = "bold"),
+        legend.position = "bottom") +
+  labs(title = "")
+
+# UMAP for RPhenograph clusters
+dittoDimPlot(spe, var = "pg", 
+                       reduction.use = "UMAP_Harmony", size = 0.2, do.label = TRUE) +
+  theme(axis.title.x = element_text(size = 24, face = "bold"),
+        axis.title.y = element_text(size = 24, face = "bold"),
+        axis.text.x = element_text(size = 14),
+        axis.text.y = element_text(size = 14),
+        title = element_text(size = 30, face = "bold")) +
+  labs(title = "PG Clusters")
+
+# Clean up the rownames
+rownames(spe)[rowData(spe)$use_channel] <- c("aSMA", "Vimentin", "CD163", "Pan CK", "CD15",
+                                             "CD45", "FoxP3", "CD4", "E-Cadherin", "CD68", "CD8a", 
+                                             "GZMB", "Ki67", "Collagen I", "CD3", "CD45RO")
+
+# Visualize the marker expression on UMAP
+markers <- rownames(spe)[rowData(spe)$use_channel]
+plot_list <- multi_dittoDimPlot(spe, var = markers, reduction.use = "UMAP_Harmony", 
+                                assay = "exprs", 
+                                size = 0.2, 
+                                list.out = TRUE, 
+                                axes.labels.show = FALSE, 
+                                show.axes.numbers = FALSE, 
+                                show.grid.lines = FALSE,
+                                theme_classic())
+
+# Plot each individual markers expression
+plot_list <- lapply(plot_list, function(x) x + scale_color_viridis(option = "B") +
+                      theme(axis.title = element_text(face = "bold"),
+                            axis.ticks = element_blank(),
+                            strip.text = element_text(face = "bold"),
+                            title = element_text(face = "bold")))
+markerPlots <- plot_grid(plotlist = plot_list) 
+markerPlots
+```
+
+```{r UMAP_Projections_III, echo = TRUE, eval = TRUE, message = FALSE, warning = FALSE, fig.width = 10, fig.height = 10}
+
+
+# UMAP for Source
+dittoDimPlot(spe, var = "Source", 
+                         reduction.use = "UMAP_Harmony", size = 0.2, 
+                         color.panel = metadata(spe)$color_vectors$Source) +
+  theme(axis.title.x = element_text(size = 24, face = "bold"),
+        axis.title.y = element_text(size = 24, face = "bold"),
+        axis.text.x = element_text(size = 14),
+        axis.text.y = element_text(size = 14),
+        title = element_text(size = 24, face = "bold"),
+        legend.position = "bottom") +
+  labs(title = "")
+
+# UMAP for Stage
+dittoDimPlot(spe, var = "Stage", 
+                           reduction.use = "UMAP_Harmony", size = 0.2) +
+  theme(axis.title.x = element_text(size = 24, face = "bold"),
+        axis.title.y = element_text(size = 24, face = "bold"),
+        axis.text.x = element_text(size = 14),
+        axis.text.y = element_text(size = 14),
+        title = element_text(size = 24, face = "bold"),
+        legend.position = "bottom") +
+  labs(title = "")
+
+# UMAP for RPhenograph clusters
+dittoDimPlot(spe, var = "pg", 
+                       reduction.use = "UMAP_Harmony", size = 0.2, do.label = TRUE) +
+  theme(axis.title.x = element_text(size = 24, face = "bold"),
+        axis.title.y = element_text(size = 24, face = "bold"),
+        axis.text.x = element_text(size = 14),
+        axis.text.y = element_text(size = 14),
+        title = element_text(size = 30, face = "bold")) +
+  labs(title = "PG Clusters")
+
+# Clean up the rownames
+rownames(spe)[rowData(spe)$use_channel] <- c("aSMA", "Vimentin", "CD163", "Pan CK", "CD15",
+                                             "CD45", "FoxP3", "CD4", "E-Cadherin", "CD68", "CD8a", 
+                                             "GZMB", "Ki67", "Collagen I", "CD3", "CD45RO")
+
+# Visualize the marker expression on UMAP
+markers <- rownames(spe)[rowData(spe)$use_channel]
+plot_list <- multi_dittoDimPlot(spe, var = markers, reduction.use = "UMAP_Harmony", 
+                                assay = "exprs", 
+                                size = 0.2, 
+                                list.out = TRUE, 
+                                axes.labels.show = FALSE, 
+                                show.axes.numbers = FALSE, 
+                                show.grid.lines = FALSE,
+                                theme_classic())
+
+# Plot each individual markers expression
+plot_list <- lapply(plot_list, function(x) x + scale_color_viridis(option = "B") +
+                      theme(axis.title = element_text(face = "bold"),
+                            axis.ticks = element_blank(),
+                            strip.text = element_text(face = "bold"),
+                            title = element_text(face = "bold")))
+markerPlots <- plot_grid(plotlist = plot_list) 
+markerPlots
+```
+
+```{r UMAP_Projections_IV, echo = TRUE, eval = TRUE, message = FALSE, warning = FALSE, fig.width = 10, fig.height = 10}
+
+# UMAP for Stage
+dittoDimPlot(spe, var = "Stage", 
+                           reduction.use = "UMAP_Harmony", size = 0.2) +
+  theme(axis.title.x = element_text(size = 24, face = "bold"),
+        axis.title.y = element_text(size = 24, face = "bold"),
+        axis.text.x = element_text(size = 14),
+        axis.text.y = element_text(size = 14),
+        title = element_text(size = 24, face = "bold"),
+        legend.position = "bottom") +
+  labs(title = "")
+
+# UMAP for RPhenograph clusters
+dittoDimPlot(spe, var = "pg", 
+                       reduction.use = "UMAP_Harmony", size = 0.2, do.label = TRUE) +
+  theme(axis.title.x = element_text(size = 24, face = "bold"),
+        axis.title.y = element_text(size = 24, face = "bold"),
+        axis.text.x = element_text(size = 14),
+        axis.text.y = element_text(size = 14),
+        title = element_text(size = 30, face = "bold")) +
+  labs(title = "PG Clusters")
+
+# Clean up the rownames
+rownames(spe)[rowData(spe)$use_channel] <- c("aSMA", "Vimentin", "CD163", "Pan CK", "CD15",
+                                             "CD45", "FoxP3", "CD4", "E-Cadherin", "CD68", "CD8a", 
+                                             "GZMB", "Ki67", "Collagen I", "CD3", "CD45RO")
+
+# Visualize the marker expression on UMAP
+markers <- rownames(spe)[rowData(spe)$use_channel]
+plot_list <- multi_dittoDimPlot(spe, var = markers, reduction.use = "UMAP_Harmony", 
+                                assay = "exprs", 
+                                size = 0.2, 
+                                list.out = TRUE, 
+                                axes.labels.show = FALSE, 
+                                show.axes.numbers = FALSE, 
+                                show.grid.lines = FALSE,
+                                theme_classic())
+
+# Plot each individual markers expression
+plot_list <- lapply(plot_list, function(x) x + scale_color_viridis(option = "B") +
+                      theme(axis.title = element_text(face = "bold"),
+                            axis.ticks = element_blank(),
+                            strip.text = element_text(face = "bold"),
+                            title = element_text(face = "bold")))
+markerPlots <- plot_grid(plotlist = plot_list) 
+markerPlots
+```
+
+```{r UMAP_Projections_V, echo = TRUE, eval = TRUE, message = FALSE, warning = FALSE, fig.width = 10, fig.height = 10}
+
+# UMAP for RPhenograph clusters
+dittoDimPlot(spe, var = "pg", 
+                       reduction.use = "UMAP_Harmony", size = 0.2, do.label = TRUE) +
+  theme(axis.title.x = element_text(size = 24, face = "bold"),
+        axis.title.y = element_text(size = 24, face = "bold"),
+        axis.text.x = element_text(size = 14),
+        axis.text.y = element_text(size = 14),
+        title = element_text(size = 30, face = "bold")) +
+  labs(title = "PG Clusters")
+
+# Clean up the rownames
+rownames(spe)[rowData(spe)$use_channel] <- c("aSMA", "Vimentin", "CD163", "Pan CK", "CD15",
+                                             "CD45", "FoxP3", "CD4", "E-Cadherin", "CD68", "CD8a", 
+                                             "GZMB", "Ki67", "Collagen I", "CD3", "CD45RO")
+
+# Visualize the marker expression on UMAP
+markers <- rownames(spe)[rowData(spe)$use_channel]
+plot_list <- multi_dittoDimPlot(spe, var = markers, reduction.use = "UMAP_Harmony", 
+                                assay = "exprs", 
+                                size = 0.2, 
+                                list.out = TRUE, 
+                                axes.labels.show = FALSE, 
+                                show.axes.numbers = FALSE, 
+                                show.grid.lines = FALSE,
+                                theme_classic())
+
+# Plot each individual markers expression
+plot_list <- lapply(plot_list, function(x) x + scale_color_viridis(option = "B") +
+                      theme(axis.title = element_text(face = "bold"),
+                            axis.ticks = element_blank(),
+                            strip.text = element_text(face = "bold"),
+                            title = element_text(face = "bold")))
+markerPlots <- plot_grid(plotlist = plot_list) 
+markerPlots
+```
+
+```{r UMAP_Projections_VI, echo = TRUE, eval = TRUE, message = FALSE, warning = FALSE, fig.width = 10, fig.height = 10}
+
+# Clean up the rownames
+rownames(spe)[rowData(spe)$use_channel] <- c("aSMA", "Vimentin", "CD163", "Pan CK", "CD15",
+                                             "CD45", "FoxP3", "CD4", "E-Cadherin", "CD68", "CD8a", 
+                                             "GZMB", "Ki67", "Collagen I", "CD3", "CD45RO")
+
+# Visualize the marker expression on UMAP
+markers <- rownames(spe)[rowData(spe)$use_channel]
+plot_list <- multi_dittoDimPlot(spe, var = markers, reduction.use = "UMAP_Harmony", 
+                                assay = "exprs", 
+                                size = 0.2, 
+                                list.out = TRUE, 
+                                axes.labels.show = FALSE, 
+                                show.axes.numbers = FALSE, 
+                                show.grid.lines = FALSE,
+                                theme_classic())
+
+# Plot each individual markers expression
+plot_list <- lapply(plot_list, function(x) x + scale_color_viridis(option = "B") +
+                      theme(axis.title = element_text(face = "bold"),
+                            axis.ticks = element_blank(),
+                            strip.text = element_text(face = "bold"),
+                            title = element_text(face = "bold")))
+markerPlots <- plot_grid(plotlist = plot_list) 
+markerPlots
+```
+
 
 Now, we have visualized the marker expressions on the UMAPs along with the clusters. We also have the cluster heatmap and the images generated in script `002_Cluster_Visualization.R`.
 Based on all of this information, we can now assign labels to the clusters. Additionally, we will add a color vector to identify the clusters in downstream figures. 
 
-```{r cluster_IDs, echo = TRUE, eval = TRUE, message = FALSE, warning = FALSE}
+```{r cluster_IDs, echo = TRUE, eval = TRUE, message = FALSE, warning = FALSE, fig.width = 10, fig.height = 10}
 # Assign celltypes to each cluster based on UMAPs 
 spe$cellTypes <- ifelse(spe$pg == "1", "Tregs", 
                         ifelse(spe$pg == "2", "Cytotoxic Cells",
@@ -179,7 +439,7 @@ dittoDimPlot(spe, var = "cellTypes",
 
 We can now show the clusters on the tissues as an example
 
-```{r, Example_Image, echo = TRUE, eval = TRUE, message = FALSE, warning = FALSE}
+```{r, Example_Image, echo = TRUE, eval = TRUE, message = FALSE, warning = FALSE, fig.width = 10, fig.height = 10}
 
 # Read in the images and masks
 masks <- readRDS("../../Data/Images/Final_Mask_Dataset.Rds")
@@ -215,7 +475,7 @@ plotCells(cur_masks,
 
 Similarly to how we generated a heatmap for the RPhenograph clusters, we can now generate a heatmap for the phenotyped clusters. Here we will make the graphic a bit fancier than the `dittoHeatmap` generated in script `001_Prepare_Spe_Object.R` by using R package `complexHeatmap`. NOTE: There is a bug in `complexHeatmap` that will cause R to crash when you draw a heatmap. To fix this bug, you must load R package `magick` alongside `complexHeatmap`.
 
-```{r, Cluster_Heatmap, echo = TRUE, eval = TRUE, message = TRUE, warning = TRUE}
+```{r, Cluster_Heatmap, echo = TRUE, eval = TRUE, message = TRUE, warning = TRUE, fig.width = 10, fig.height = 10}
 # Aggregate clusters across cells by taking the mean cluster counts per cell
 image_mean <- aggregateAcrossCells(as(spe[rowData(spe)$use_channel], "SingleCellExperiment"), 
                                    ids = spe$pg,
@@ -314,7 +574,7 @@ Heatmap(as.matrix(maxScaled),
 Next, we can visualize a stacked barplot showing the cell type composition for each individual sample split by Indication. Doing this is a visual way of differential cell type abundance. We will run actual statisitcs on these differences in a later code chunk, but the visualization will comprise one panel of a figure. 
 We want one that is the absolute cell number per sample and then one that is scaled to be a perentage. 
 
-```{r, compositional_barplots, echo = TRUE, eval = TRUE, message = FALSE, warning = FALSE}
+```{r, compositional_barplots, echo = TRUE, eval = TRUE, message = FALSE, warning = FALSE, fig.width = 10, fig.height = 10}
 
 # Plot a compositional barplot
 dittoBarPlot(spe, 
@@ -332,6 +592,29 @@ dittoBarPlot(spe,
         axis.title.y = element_text(face = "bold", size = 24),
         strip.text = element_text(face = "bold", size = 24),
         legend.position = "none")
+
+# Plot the number of cells per ROI
+dittoBarPlot(spe, 
+             scale = "count",
+             var = "cellTypes", 
+             group.by = "sample_id",
+             split.by = "Indication",
+             split.adjust = list(scales = "free")) +
+  scale_fill_manual(values = metadata(spe)$color_vectors$cellTypes) +
+  labs(y = "Number of Cells",
+       x = "",
+       fill = "",
+       title = "") +
+  theme(axis.title.x = element_blank(),
+        axis.text.x = element_blank(),
+        axis.title.y = element_text(face = "bold", size = 24),
+        strip.text = element_text(face = "bold", size = 24),
+        axis.ticks.x = element_blank(),
+        legend.position = "none")
+
+```
+
+```{r, compositional_barplots_II, echo = TRUE, eval = TRUE, message = FALSE, warning = FALSE, fig.width = 10, fig.height = 10}
 
 # Plot the number of cells per ROI
 dittoBarPlot(spe, 

@@ -140,6 +140,12 @@ spe <- buildSpatialGraph(spe,
                          type = "knn",
                          k = 20)
 
+# Aggregate neighbors
+spe <- aggregateNeighbors(spe, 
+                          colPairName = "knn_interaction_graph", 
+                          aggregate_by = "metadata", 
+                          count_by = "cellTypes")
+
 
 # Set a seed
 set.seed(03061999)
