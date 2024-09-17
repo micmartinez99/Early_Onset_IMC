@@ -15,7 +15,7 @@ library(cytomapper)
 library(RColorBrewer)
 library(tidyverse)
 library(dplyr)
-library(scater)
+library(scater)xs
 library(ggplot2)
 library(ggpubr)
 library(viridis)
